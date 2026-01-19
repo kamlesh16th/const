@@ -3,59 +3,141 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Construction Cost Estimator - Detailed</title>
+    <title>Construction Cost Estimator</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- jsPDF & autoTable -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <style>
-        body { background:#f5f7fa; padding:1rem; font-size:0.95rem; }
-        .container { max-width:1400px; }
-        .table { font-size:0.9rem; }
-        .table th { 
-            background:#0d6efd; 
-            color:white; 
-            position:sticky; 
-            top:0; 
-            z-index:10; 
-        }
-        .subtotal { font-weight:600; color:#2c7be5; }
-        .grand-total { 
-            font-size:1.3rem; 
-            font-weight:bold; 
-            padding:1rem; 
-            background:linear-gradient(135deg,#e3f2fd,#bbdefb); 
-            border-radius:10px; 
-            margin:1.5rem 0; 
+        body {
+            background: #f8f9fa;
+            padding: 1rem;
+            font-family: system-ui, -apple-system, sans-serif;
         }
 
-        @media (max-width:768px) {
-            .table thead { display:none; }
-            .table tr { 
-                display:block; 
-                margin-bottom:1.2rem; 
-                border:1px solid #dee2e6; 
-                border-radius:8px; 
-                background:white; 
-                box-shadow:0 2px 6px rgba(0,0,0,0.08);
+        .container {
+            max-width: 1300px;
+        }
+
+        .table th {
+            background: #0d6efd;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .grand-total {
+            font-size: 1.4rem;
+            font-weight: bold;
+            padding: 1rem;
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-radius: 10px;
+            margin: 1.5rem 0;
+            text-align: right;
+        }
+
+        /* ──────────────────────────────────────────────────────────────
+           80mm THERMAL PRINTER OPTIMIZED PRINT STYLES
+        ────────────────────────────────────────────────────────────── */
+        @media print {
+            @page {
+                size: 80mm auto;
+                margin: 4mm 3mm;
             }
-            .table td { 
-                display:flex; 
-                justify-content:space-between; 
-                border:none; 
-                padding:0.7rem 1rem; 
-                border-bottom:1px solid #eee;
+
+            body {
+                width: 74mm;                    /* Safe printable width */
+                margin: 0;
+                padding: 0;
+                font-family: "Courier New", Courier, monospace;
+                font-size: 10.2pt;
+                line-height: 1.18;
+                color: #000;
+                background: #fff;
             }
-            .table td:before { 
-                content:attr(data-label); 
-                font-weight:bold; 
-                width:45%; 
-                color:#495057;
+
+            .container, .table-responsive {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            h2 {
+                font-size: 13pt;
+                text-align: center;
+                margin: 4mm 0 6mm 0;
+                padding-bottom: 2mm;
+                border-bottom: 1px solid #000;
+            }
+
+            .no-print, button, .actions-cell {
+                display: none !important;
+            }
+
+            .table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9.8pt;
+                margin: 0;
+            }
+
+            .table thead {
+                display: none;
+            }
+
+            .table tr {
+                page-break-inside: avoid;
+            }
+
+            .table td {
+                display: block !important;
+                width: 100% !important;
+                border: none;
+                padding: 1.8mm 0 1.2mm 0;
+                border-bottom: 0.5pt dashed #666;
+                vertical-align: top;
+            }
+
+            .table td:before {
+                content: attr(data-label) ": ";
+                font-weight: bold;
+                display: inline-block;
+                width: 36%;
+                padding-right: 3mm;
+            }
+
+            /* Better alignment for numbers */
+            .table td[data-label="Qty"],
+            .table td[data-label="Rate"],
+            .table td[data-label="Subtotal"] {
+                text-align: right !important;
+                padding-right: 2mm;
+            }
+
+            .table td[data-label="Description"]:before {
+                width: 30%;
+            }
+
+            .grand-total {
+                font-size: 11.5pt;
+                font-weight: bold;
+                text-align: right;
+                margin: 8mm 0 4mm 0;
+                padding-top: 4mm;
+                border-top: 1.5pt double #000;
+            }
+
+            /* Small footer */
+            .print-footer {
+                text-align: center;
+                font-size: 8.5pt;
+                margin-top: 8mm;
+                color: #444;
+                border-top: 0.5pt solid #aaa;
+                padding-top: 3mm;
             }
         }
     </style>
@@ -63,14 +145,37 @@
 <body>
 
 <div class="container">
-    <h2 class="text-center mb-4 fw-bold text-primary">Construction Cost Estimator</h2>
+    <h2>Construction Cost Estimate</h2>
 
-    <div class="d-flex flex-wrap gap-2 mb-4 justify-content-center justify-content-sm-between">
-        <button class="btn btn-primary btn-sm" onclick="addRow()">+ Add Custom Item</button>
-        
+    <div class="d-flex flex-wrap gap-2 mb-4 justify-content-between no-print">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <select id="itemSelect" class="form-select form-select-sm" style="max-width: 280px;">
+                <option value="">Select Item to Add</option>
+                <option value="Foundation">Foundation</option>
+                <option value="Plinth">Plinth</option>
+                <option value="Beams & Lintels">Beams & Lintels</option>
+                <option value="Columns">Columns</option>
+                <option value="Ground Floor">Ground Floor</option>
+                <option value="First Floor">First Floor</option>
+                <option value="Second Floor">Second Floor</option>
+                <option value="Third Floor">Third Floor</option>
+                <option value="Roof / Terrace Slab">Roof / Terrace Slab</option>
+                <option value="Parapet">Parapet</option>
+                <option value="Staircase 1">Staircase 1</option>
+                <option value="Staircase 2">Staircase 2</option>
+                <option value="Exterior Design / Elevation">Exterior / Elevation</option>
+                <option value="Boundary Wall / Compound Wall">Boundary Wall</option>
+                <option value="Painting (Internal + External)">Painting</option>
+                <option value="Electrical Work">Electrical Work</option>
+                <option value="Plumbing & Sanitary">Plumbing & Sanitary</option>
+                <option value="Custom Item">Custom Item</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="addSelectedItem()">+ Add Item</button>
+        </div>
+
         <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-success btn-sm" onclick="printTable()">Print</button>
-            <button class="btn btn-info btn-sm" onclick="exportToPDF()">Export PDF</button>
+            <button class="btn btn-success btn-sm" onclick="window.print()">Print (Thermal)</button>
+            <button class="btn btn-info btn-sm" onclick="exportPDF()">PDF Export</button>
             <button class="btn btn-warning btn-sm" onclick="downloadCSV()">CSV ↓</button>
             <label class="btn btn-secondary btn-sm mb-0">
                 CSV ↑ <input type="file" id="uploadCSV" accept=".csv" hidden onchange="uploadCSVFile(this)">
@@ -79,298 +184,113 @@
     </div>
 
     <div class="table-responsive">
-        <table class="table table-hover table-bordered" id="estimatorTable">
+        <table class="table table-bordered" id="estimatorTable">
             <thead>
                 <tr>
                     <th>Description</th>
-                    <th>Qty / Area (sq.ft)</th>
-                    <th>Rate (₹)</th>
-                    <th>Subtotal (₹)</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Subtotal</th>
                     <th>Remarks</th>
                     <th class="text-center">Action</th>
                 </tr>
             </thead>
-            <tbody>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Foundation"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" step="0.01" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" step="0.01" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Plinth"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" step="0.01" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" step="0.01" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Beams & Lintels"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Columns"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Ground Floor"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="First Floor"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Second Floor"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Third Floor"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Roof / Terrace Slab"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Parapet"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Staircase 1"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Staircase 2"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Exterior Design / Elevation"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Boundary Wall / Compound Wall"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Painting (Internal + External)"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Electrical Work"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-                <tr>
-                    <td data-label="Description"><input type="text" class="form-control" value="Plumbing & Sanitary"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" oninput="calc(this)"></td>
-                    <td data-label="Subtotal" class="subtotal text-end">0</td>
-                    <td data-label="Remarks"><input type="text" class="form-control"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
-                </tr>
-            </tbody>
+            <tbody></tbody>
         </table>
     </div>
 
-    <div class="grand-total text-center" id="grandTotal">
+    <div class="grand-total" id="grandTotal">
         Grand Total: ₹ 0.00
+    </div>
+
+    <div class="print-footer">
+        Thank you for your business<br>
+        Generated on: <span id="printDate"></span>
     </div>
 </div>
 
 <script>
-// ─── Calculation Functions ───────────────────────────────────────
-function calc(input) {
-    const row = input.closest('tr');
-    const qty = Number(row.querySelector('.qty').value) || 0;
-    const rate = Number(row.querySelector('.rate').value) || 0;
-    const subtotal = qty * rate;
-    row.querySelector('.subtotal').textContent = subtotal.toLocaleString('en-IN', {
-        minimumFractionDigits:2, 
-        maximumFractionDigits:2
-    });
-    updateGrandTotal();
+document.getElementById('printDate').textContent = new Date().toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+});
+
+// ─── Add item ────────────────────────────────────────────────────
+function addSelectedItem() {
+    const select = document.getElementById('itemSelect');
+    const value = select.value.trim();
+    if (!value) return;
+    addRow(value);
+    select.value = "";
 }
 
-function updateGrandTotal() {
-    let sum = 0;
-    document.querySelectorAll('.subtotal').forEach(el => {
-        sum += parseFloat(el.textContent.replace(/,/g, '')) || 0;
-    });
-    document.getElementById('grandTotal').textContent = 
-        `Grand Total: ₹ ${sum.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-}
-
-// ─── Row Management ──────────────────────────────────────────────
-function addRow() {
+function addRow(description) {
     const tbody = document.querySelector('#estimatorTable tbody');
     const row = document.createElement('tr');
     row.innerHTML = `
-        <td data-label="Description"><input type="text" class="form-control" value="Custom Item"></td>
-        <td data-label="Qty / Area"><input type="number" class="form-control qty" value="0" min="0" step="0.01" oninput="calc(this)"></td>
-        <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" step="0.01" oninput="calc(this)"></td>
-        <td data-label="Subtotal" class="subtotal text-end">0</td>
+        <td data-label="Description"><input type="text" class="form-control" value="${description}"></td>
+        <td data-label="Qty"><input type="number" class="form-control qty" value="0" min="0" step="0.01" oninput="calculate()"></td>
+        <td data-label="Rate"><input type="number" class="form-control rate" value="0" min="0" step="0.01" oninput="calculate()"></td>
+        <td data-label="Subtotal" class="subtotal text-end">0.00</td>
         <td data-label="Remarks"><input type="text" class="form-control"></td>
-        <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
+        <td data-label="Action" class="text-center">
+            <button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculate();">×</button>
+        </td>
     `;
     tbody.appendChild(row);
+    calculate();
 }
 
-function removeRow(btn) {
-    btn.closest('tr').remove();
-    updateGrandTotal();
+// ─── Calculate totals ────────────────────────────────────────────
+function calculate() {
+    let total = 0;
+    document.querySelectorAll('#estimatorTable tbody tr').forEach(row => {
+        const qty = parseFloat(row.querySelector('.qty').value) || 0;
+        const rate = parseFloat(row.querySelector('.rate').value) || 0;
+        const subtotal = qty * rate;
+        row.querySelector('.subtotal').textContent = subtotal.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        total += subtotal;
+    });
+    document.getElementById('grandTotal').textContent = 
+        `Grand Total: ₹ ${total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 
-function printTable() {
-    window.print();
-}
-
-// ─── PDF Export (beautiful formatting) ───────────────────────────
-function exportToPDF() {
+// ─── PDF Export ──────────────────────────────────────────────────
+function exportPDF() {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF();
+    doc.text("Construction Cost Estimate", 105, 15, { align: "center" });
+    doc.autoTable({ html: '#estimatorTable', startY: 25 });
+    doc.text(document.getElementById('grandTotal').textContent, 190, doc.lastAutoTable.finalY + 12, { align: "right" });
+    doc.save('estimate.pdf');
+}
 
-    // Header
-    doc.setFillColor(13, 110, 253);
-    doc.rect(0, 0, 210, 40, 'F');
-    doc.setFontSize(20);
-    doc.setTextColor(255);
-    doc.setFont("helvetica", "bold");
-    doc.text("Construction Cost Estimate", 105, 22, { align: "center" });
-    
-    doc.setFontSize(11);
-    doc.setTextColor(240,240,240);
-    doc.text("Generated: " + new Date().toLocaleDateString('en-IN'), 105, 30, { align: "center" });
-
-    // Table Data
-    const tableData = [];
+// ─── CSV Download ────────────────────────────────────────────────
+function downloadCSV() {
+    const rows = [['Description','Qty','Rate','Subtotal','Remarks']];
     document.querySelectorAll('#estimatorTable tbody tr').forEach(row => {
         const cells = row.querySelectorAll('td');
-        tableData.push([
-            cells[0].querySelector('input').value || '',
-            cells[1].querySelector('input').value || '0',
-            cells[2].querySelector('input').value || '0',
-            cells[3].textContent || '0',
-            cells[4].querySelector('input').value || ''
-        ]);
-    });
-
-    const grandTotal = document.getElementById('grandTotal').textContent;
-
-    doc.autoTable({
-        startY: 48,
-        head: [['Description', 'Qty / Area (sq.ft)', 'Rate (₹)', 'Subtotal (₹)', 'Remarks']],
-        body: tableData,
-        theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 4, textColor: [33,37,41], lineColor: [44,62,80], lineWidth: 0.1 },
-        headStyles: { fillColor: [13,110,253], textColor: 255, fontSize: 10, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245,247,250] },
-        columnStyles: {
-            0: { cellWidth: 60 },
-            1: { cellWidth: 35, halign: 'right' },
-            2: { cellWidth: 35, halign: 'right' },
-            3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
-            4: { cellWidth: 25 }
-        },
-        margin: { top: 48, left: 10, right: 10 }
-    });
-
-    // Grand Total
-    const finalY = doc.lastAutoTable.finalY + 12;
-    doc.setFillColor(187, 222, 251);
-    doc.rect(10, finalY - 4, 190, 14, 'F');
-    doc.setFontSize(13);
-    doc.setTextColor(0,51,102);
-    doc.setFont("helvetica", "bold");
-    doc.text(grandTotal, 190, finalY + 4, { align: "right" });
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(100);
-    doc.text("Generated with Construction Cost Estimator • For personal use", 105, 290, { align: "center" });
-
-    doc.save('Construction_Estimate_' + new Date().toISOString().slice(0,10) + '.pdf');
-}
-
-// CSV functions (same as before)
-function downloadCSV() {
-    const rows = [['Description','Qty/Area','Rate','Subtotal','Remarks']];
-    document.querySelectorAll('#estimatorTable tbody tr').forEach(tr => {
-        const tds = tr.querySelectorAll('td');
         rows.push([
-            tds[0].querySelector('input').value,
-            tds[1].querySelector('input').value,
-            tds[2].querySelector('input').value,
-            tds[3].textContent,
-            tds[4].querySelector('input').value
+            cells[0].querySelector('input').value,
+            cells[1].querySelector('input').value,
+            cells[2].querySelector('input').value,
+            cells[3].textContent,
+            cells[4].querySelector('input').value
         ]);
     });
     const csv = Papa.unparse(rows);
     const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'construction_estimate.csv';
-    link.click();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'estimate.csv';
+    a.click();
 }
 
+// ─── CSV Upload ──────────────────────────────────────────────────
 function uploadCSVFile(input) {
     const file = input.files[0];
     if (!file) return;
@@ -384,21 +304,23 @@ function uploadCSVFile(input) {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td data-label="Description"><input type="text" class="form-control" value="${row[0]}"></td>
-                    <td data-label="Qty / Area"><input type="number" class="form-control qty" value="${row[1]}" min="0" oninput="calc(this)"></td>
-                    <td data-label="Rate"><input type="number" class="form-control rate" value="${row[2]}" min="0" oninput="calc(this)"></td>
+                    <td data-label="Qty"><input type="number" class="form-control qty" value="${row[1]}" oninput="calculate()"></td>
+                    <td data-label="Rate"><input type="number" class="form-control rate" value="${row[2]}" oninput="calculate()"></td>
                     <td data-label="Subtotal" class="subtotal text-end">${row[3]}</td>
                     <td data-label="Remarks"><input type="text" class="form-control" value="${row[4]}"></td>
-                    <td data-label="Action" class="text-center"><button class="btn btn-danger btn-sm" onclick="removeRow(this)">×</button></td>
+                    <td data-label="Action" class="text-center">
+                        <button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); calculate();">×</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
-            updateGrandTotal();
+            calculate();
         }
     });
 }
 
-// Initialize
-document.querySelectorAll('.qty, .rate').forEach(el => calc(el));
+// Initial calculation
+document.addEventListener('DOMContentLoaded', calculate);
 </script>
 </body>
 </html>
